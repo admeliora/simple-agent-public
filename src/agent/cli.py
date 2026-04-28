@@ -1,9 +1,9 @@
 import argparse
-import sys
 
 from dotenv import load_dotenv
 
 from agent.core import make_agent
+from agent.memory_mode import MemoryMode, parse_memory_mode
 
 
 def main():
@@ -20,12 +20,19 @@ def main():
         default=None,
         help="Custom system prompt",
     )
+    parser.add_argument(
+        "--memory-mode",
+        choices=[mode.value for mode in MemoryMode],
+        default=MemoryMode.NONE.value,
+        help="Cross-conversation memory mode scaffold: none, raw, summary",
+    )
     args = parser.parse_args()
 
-    agent = make_agent(args.model, args.system)
+    memory_mode = parse_memory_mode(args.memory_mode)
+    agent = make_agent(args.model, args.system, memory_mode=memory_mode)
     messages = []
 
-    print("Chat started. Type 'quit' to exit.\n")
+    print(f"Chat started (memory mode: {memory_mode.value}). Type 'quit' to exit.\n")
 
     while True:
         try:

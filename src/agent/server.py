@@ -1,9 +1,12 @@
+import os
+
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from agent.core import make_agent
+from agent.memory_mode import parse_memory_mode
 
 load_dotenv()
 
@@ -17,7 +20,8 @@ app.add_middleware(
 )
 
 # Initialize agent once at startup with default model
-agent = make_agent()
+memory_mode = parse_memory_mode(os.getenv("MEMORY_MODE"))
+agent = make_agent(memory_mode=memory_mode)
 
 
 class Message(BaseModel):

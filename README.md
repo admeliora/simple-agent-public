@@ -48,6 +48,37 @@ cp .env.example .env
 # Fill in your API key(s) in .env
 ```
 
+
+## Memory mode toggle (scaffold)
+
+You can select a cross-conversation memory mode (implementation scaffold):
+
+- `none` (default)
+- `raw`
+- `summary`
+
+CLI:
+
+```bash
+uv run chat --memory-mode raw
+```
+
+Server:
+
+```bash
+MEMORY_MODE=summary uv run serve
+```
+
+## Memory harness
+
+To compare memory modes with a deterministic scripted conversation:
+
+```bash
+uv run memory-harness --mode all
+```
+
+See `harness/README.md` for details.
+
 ## Running evals
 
 ```bash

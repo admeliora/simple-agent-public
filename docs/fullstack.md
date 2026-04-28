@@ -14,7 +14,9 @@ Run both processes in separate terminals.
 **Terminal 1 — backend:**
 
 ```bash
-uv run serve
+MEMORY_MODE=none uv run serve
+# or: MEMORY_MODE=raw uv run serve
+# or: MEMORY_MODE=summary uv run serve
 ```
 
 Server starts at `http://localhost:8000`.

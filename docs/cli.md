@@ -16,6 +16,10 @@ uv run chat --model google_genai:gemini-2.5-flash
 
 # Custom system prompt
 uv run chat --system "You are a helpful coding assistant."
+
+# Memory mode scaffold
+uv run chat --memory-mode raw
+uv run chat --memory-mode summary
 ```
 
 Type `quit` or `exit` to end the session.
