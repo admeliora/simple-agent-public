@@ -37,6 +37,12 @@ uv run memory-harness --mode summary
 uv run memory-harness --mode none
 ```
 
+To run the user-scoping demo (shared for same user across conversations, isolated between users):
+
+```bash
+uv run memory-harness --demo user-scope
+```
+
 ## Testing checklist (copy/paste)
 
 Use these commands from repo root to validate the harness and memory behavior:
@@ -45,10 +51,13 @@ Use these commands from repo root to validate the harness and memory behavior:
 # 1) run harness in all modes (deterministic output, no API calls)
 uv run memory-harness --mode all
 
-# 2) assert harness behavior via tests
+# 2) run user-scope demo output checks (same-user sharing, cross-user isolation)
+uv run memory-harness --demo user-scope
+
+# 3) assert harness behavior via tests
 uv run pytest evals/test_memory_modes.py -v
 
-# 3) assert persisted memory behavior, including conversation isolation
+# 4) assert persisted memory behavior, including conversation isolation
 uv run pytest evals/test_memory_persistence.py -v
 ```
 
@@ -57,6 +66,8 @@ What to verify:
 - `none` output contains only `current_user_turn`.
 - `raw` output shows the full scripted history.
 - `summary` output shows `memory_summary` + `recent_user_turn`.
+- `--demo user-scope` output reports `True` for sharing across conversations per user.
+- `--demo user-scope` output reports `True` for isolation between different users.
 - Persistence tests confirm memory is reused across turns in the same conversation.
 - User-scope tests confirm memory is shared across conversations for the same user.
 - Isolation tests confirm memory from one user does **not** leak into another user.

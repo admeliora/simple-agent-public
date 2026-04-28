@@ -1,4 +1,4 @@
-from agent.memory_harness import SCRIPTED_TURNS, build_context, run
+from agent.memory_harness import SCRIPTED_TURNS, build_context, run, run_user_scope_demo
 from agent.memory_mode import MemoryMode, parse_memory_mode
 
 
@@ -29,3 +29,11 @@ def test_harness_none_mode_uses_only_current_turn():
     output = run(MemoryMode.NONE)
     assert "current_user_turn:" in output
     assert "memory_summary:" not in output
+
+
+def test_harness_user_scope_demo_reports_sharing_and_isolation():
+    output = run_user_scope_demo()
+    assert "shared_across_conversations_for_user_a: True" in output
+    assert "isolated_from_user_b_for_user_a: True" in output
+    assert "shared_across_conversations_for_user_b: True" in output
+    assert "isolated_from_user_a_for_user_b: True" in output

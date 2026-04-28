@@ -88,6 +88,12 @@ To compare memory modes with a deterministic scripted conversation:
 uv run memory-harness --mode all
 ```
 
+To demonstrate same-user sharing and cross-user isolation:
+
+```bash
+uv run memory-harness --demo user-scope
+```
+
 See `harness/README.md` for details.
 
 The harness is deterministic and demonstrates how `none`, `raw`, and `summary` produce different prompt contexts for the same scripted conversation.
