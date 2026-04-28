@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from agent.memory import MemoryCoordinator, MemoryStore
+from agent.memory import MemoryCoordinator, MemoryStore, memory_scope_id
 from agent.memory_mode import MemoryMode
 
 
@@ -84,7 +84,7 @@ def test_none_mode_passes_through_messages(tmp_path: Path):
     assert memory.build_prompt_messages("conv", incoming) == incoming
 
 
-def test_memory_is_isolated_across_conversations(tmp_path: Path):
+def test_memory_is_shared_across_conversations_for_same_user(tmp_path: Path):
     store = MemoryStore(str(tmp_path / "isolation.db"))
     memory = MemoryCoordinator(
         mode=MemoryMode.RAW,
@@ -93,23 +93,52 @@ def test_memory_is_isolated_across_conversations(tmp_path: Path):
         summary_updater=fake_summary_updater,
     )
 
+    shared_scope = memory_scope_id("user-42", "conversation-a")
     memory.persist_exchange(
-        "conversation-a",
+        shared_scope,
+        {"role": "user", "content": "My favorite color is blue."},
+        {"role": "assistant", "content": "Noted: blue."},
+    )
+
+    prompt_a = memory.build_prompt_messages(
+        memory_scope_id("user-42", "conversation-a"),
+        [{"role": "user", "content": "What is my favorite color?"}],
+    )
+    prompt_b = memory.build_prompt_messages(
+        memory_scope_id("user-42", "conversation-b"),
+        [{"role": "user", "content": "What is my favorite color?"}],
+    )
+
+    assert any("blue" in msg["content"] for msg in prompt_a)
+    assert any("blue" in msg["content"] for msg in prompt_b)
+
+
+def test_memory_is_isolated_between_different_users(tmp_path: Path):
+    store = MemoryStore(str(tmp_path / "isolation-users.db"))
+    memory = MemoryCoordinator(
+        mode=MemoryMode.RAW,
+        store=store,
+        summary_model_str="openai:gpt-4o-mini",
+        summary_updater=fake_summary_updater,
+    )
+
+    memory.persist_exchange(
+        memory_scope_id("user-a", "conversation-1"),
         {"role": "user", "content": "My favorite color is blue."},
         {"role": "assistant", "content": "Noted: blue."},
     )
     memory.persist_exchange(
-        "conversation-b",
+        memory_scope_id("user-b", "conversation-99"),
         {"role": "user", "content": "My favorite color is green."},
         {"role": "assistant", "content": "Noted: green."},
     )
 
     prompt_a = memory.build_prompt_messages(
-        "conversation-a",
+        memory_scope_id("user-a", "conversation-2"),
         [{"role": "user", "content": "What is my favorite color?"}],
     )
     prompt_b = memory.build_prompt_messages(
-        "conversation-b",
+        memory_scope_id("user-b", "conversation-100"),
         [{"role": "user", "content": "What is my favorite color?"}],
     )
 

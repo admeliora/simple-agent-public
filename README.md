@@ -75,6 +75,11 @@ Use `MEMORY_DB_PATH` to control where conversation memory is stored (SQLite):
 MEMORY_DB_PATH=.data/memory.db MEMORY_MODE=raw uv run serve
 ```
 
+Memory scope rules:
+
+- Provide a user ID (`--user-id` in CLI or `user_id` in server requests) to share memory across that user's conversations.
+- If no user ID is provided, memory falls back to conversation-level scope (`conversation_id`).
+
 ## Memory harness
 
 To compare memory modes with a deterministic scripted conversation:

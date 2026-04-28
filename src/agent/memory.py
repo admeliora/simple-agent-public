@@ -36,6 +36,17 @@ class StoredMessage:
 SummaryUpdater = Callable[[str, list[dict[str, str]], str], str]
 
 
+def memory_scope_id(user_id: str | None, conversation_id: str | None = None) -> str:
+    """Resolve the persistence scope for memory.
+
+    Memory is shared across multiple conversations for the same user.
+    If user_id is unavailable, fall back to the conversation-specific scope.
+    """
+    if user_id:
+        return f"user:{user_id}"
+    return f"conversation:{conversation_id or 'default'}"
+
+
 class MemoryStore:
     def __init__(self, db_path: str = "memory.db"):
         self.db_path = Path(db_path)

@@ -58,7 +58,8 @@ What to verify:
 - `raw` output shows the full scripted history.
 - `summary` output shows `memory_summary` + `recent_user_turn`.
 - Persistence tests confirm memory is reused across turns in the same conversation.
-- Isolation tests confirm memory from one conversation ID does **not** leak into another.
+- User-scope tests confirm memory is shared across conversations for the same user.
+- Isolation tests confirm memory from one user does **not** leak into another user.
 
 ## Interpreting output
 
