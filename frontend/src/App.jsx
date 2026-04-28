@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 const API_URL = 'http://localhost:8000'
+const CONVERSATION_ID = 'default'
 
 export default function App() {
   const [messages, setMessages] = useState([])
@@ -24,7 +25,7 @@ export default function App() {
       const res = await fetch(`${API_URL}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages }),
+        body: JSON.stringify({ conversation_id: CONVERSATION_ID, messages: newMessages }),
       })
       const data = await res.json()
       setMessages([...newMessages, { role: 'assistant', content: data.reply }])

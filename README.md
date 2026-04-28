@@ -49,9 +49,9 @@ cp .env.example .env
 ```
 
 
-## Memory mode toggle (scaffold)
+## Memory mode toggle
 
-You can select a cross-conversation memory mode (implementation scaffold):
+Cross-conversation memory modes:
 
 - `none` (default)
 - `raw`
@@ -69,6 +69,12 @@ Server:
 MEMORY_MODE=summary uv run serve
 ```
 
+Use `MEMORY_DB_PATH` to control where conversation memory is stored (SQLite):
+
+```bash
+MEMORY_DB_PATH=.data/memory.db MEMORY_MODE=raw uv run serve
+```
+
 ## Memory harness
 
 To compare memory modes with a deterministic scripted conversation:
@@ -78,6 +84,8 @@ uv run memory-harness --mode all
 ```
 
 See `harness/README.md` for details.
+
+The harness is deterministic and demonstrates how `none`, `raw`, and `summary` produce different prompt contexts for the same scripted conversation.
 
 ## Running evals
 

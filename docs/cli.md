@@ -18,15 +18,21 @@ uv run chat --model google_genai:gemini-2.5-flash
 uv run chat --system "You are a helpful coding assistant."
 
 # Memory mode scaffold
-uv run chat --memory-mode raw
-uv run chat --memory-mode summary
+uv run chat --memory-mode raw --conversation-id alice
+uv run chat --memory-mode summary --conversation-id alice
+```
+
+You can set `MEMORY_DB_PATH` to customize SQLite storage location:
+
+```bash
+MEMORY_DB_PATH=.data/memory.db uv run chat --memory-mode raw --conversation-id alice
 ```
 
 Type `quit` or `exit` to end the session.
 
 ## How it works
 
-`src/agent/cli.py` keeps a running `messages` list in memory for the duration of the session, appending each user/assistant turn before passing the full history to `agent.invoke()`.
+`src/agent/cli.py` keeps a running in-memory `messages` list when `--memory-mode none`. In `raw` and `summary` modes it reads/writes persisted conversation memory keyed by `--conversation-id` and builds prompt messages from stored state.
 
 ## Relevant files
 

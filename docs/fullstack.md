@@ -17,6 +17,7 @@ Run both processes in separate terminals.
 MEMORY_MODE=none uv run serve
 # or: MEMORY_MODE=raw uv run serve
 # or: MEMORY_MODE=summary uv run serve
+# optionally set MEMORY_DB_PATH=.data/memory.db
 ```
 
 Server starts at `http://localhost:8000`.
@@ -38,6 +39,7 @@ POST /chat
 Content-Type: application/json
 
 {
+  "conversation_id": "alice",
   "messages": [
     { "role": "user", "content": "Hello!" }
   ]
@@ -50,7 +52,7 @@ Content-Type: application/json
 }
 ```
 
-The frontend sends the full conversation history on each request. The server is stateless — no session storage.
+With `MEMORY_MODE=none`, frontend behavior is unchanged. With `raw` or `summary`, the server persists memory in SQLite and uses `conversation_id` to restore cross-session context.
 
 ## How it works
 
