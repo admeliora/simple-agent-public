@@ -72,6 +72,28 @@ What to verify:
 - User-scope tests confirm memory is shared across conversations for the same user.
 - Isolation tests confirm memory from one user does **not** leak into another user.
 
+## Troubleshooting
+
+If `memory-harness` fails with `ModuleNotFoundError: No module named 'agent'`:
+
+1. Reinstall project + scripts into the virtualenv:
+
+   ```bash
+   uv sync
+   ```
+
+2. Run via uv (recommended):
+
+   ```bash
+   uv run memory-harness --demo user-scope
+   ```
+
+3. Or run module form directly:
+
+   ```bash
+   .venv/bin/python -m agent.memory_harness --demo user-scope
+   ```
+
 ## Interpreting output
 
 - `none` is the baseline with no cross-conversation memory.
