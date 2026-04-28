@@ -285,51 +285,57 @@ def test_raw_grows_summary_stays_bounded(tmp_path: Path):
     assert len(summ_tail) <= 4 + 1
 
 
-def test_memory_is_shared_across_conversations_for_same_user(tmp_path: Path):
-    memory = _make(MemoryMode.RAW, tmp_path, "isolation")
-    shared_scope = memory_scope_id("user-42", "conversation-a")
+RECALL = {"role": "user", "content": "What is my favorite country?"}
+
+
+def test_user_recalls_own_fact_in_a_new_conversation(tmp_path: Path):
+    """user-42 says 'Japan' in conversation-a. When the same user-id starts
+    conversation-b, the rebuilt prompt is exactly the conversation-a
+    exchange followed by the recall question — i.e. memory follows the user
+    across conversations."""
+    memory = _make(MemoryMode.RAW, tmp_path, "share")
+    seed_user = {"role": "user", "content": "My favorite country is Japan."}
+    seed_asst = {"role": "assistant", "content": "Got it — Japan."}
     memory.persist_exchange(
-        shared_scope,
-        {"role": "user", "content": "My favorite color is blue."},
-        {"role": "assistant", "content": "Noted: blue."},
+        memory_scope_id("user-42", "conversation-a"), seed_user, seed_asst
     )
+
+    prompt_same_conv = memory.build_prompt_messages(
+        memory_scope_id("user-42", "conversation-a"), [RECALL]
+    )
+    prompt_new_conv = memory.build_prompt_messages(
+        memory_scope_id("user-42", "conversation-b"), [RECALL]
+    )
+
+    expected = [seed_user, seed_asst, RECALL]
+    assert prompt_same_conv == expected
+    assert prompt_new_conv == expected, (
+        "Expected the same persisted exchange to appear in conversation-b "
+        "because memory is keyed by user, not by conversation."
+    )
+
+
+def test_user_does_not_see_another_users_fact(tmp_path: Path):
+    """user-a says 'Japan'; user-b says 'France'. Each user's rebuilt prompt
+    must contain only their own fact and the recall question — neither user's
+    fact bleeds into the other's prompt."""
+    memory = _make(MemoryMode.RAW, tmp_path, "isolate")
+    a_user = {"role": "user", "content": "My favorite country is Japan."}
+    a_asst = {"role": "assistant", "content": "Got it — Japan."}
+    b_user = {"role": "user", "content": "My favorite country is France."}
+    b_asst = {"role": "assistant", "content": "Got it — France."}
+    memory.persist_exchange(memory_scope_id("user-a", "conversation-1"), a_user, a_asst)
+    memory.persist_exchange(memory_scope_id("user-b", "conversation-99"), b_user, b_asst)
 
     prompt_a = memory.build_prompt_messages(
-        memory_scope_id("user-42", "conversation-a"),
-        [{"role": "user", "content": "What is my favorite color?"}],
+        memory_scope_id("user-a", "conversation-2"), [RECALL]
     )
     prompt_b = memory.build_prompt_messages(
-        memory_scope_id("user-42", "conversation-b"),
-        [{"role": "user", "content": "What is my favorite color?"}],
+        memory_scope_id("user-b", "conversation-100"), [RECALL]
     )
 
-    assert any("blue" in msg["content"] for msg in prompt_a)
-    assert any("blue" in msg["content"] for msg in prompt_b)
-
-
-def test_memory_is_isolated_between_different_users(tmp_path: Path):
-    memory = _make(MemoryMode.RAW, tmp_path, "isolation-users")
-    memory.persist_exchange(
-        memory_scope_id("user-a", "conversation-1"),
-        {"role": "user", "content": "My favorite color is blue."},
-        {"role": "assistant", "content": "Noted: blue."},
-    )
-    memory.persist_exchange(
-        memory_scope_id("user-b", "conversation-99"),
-        {"role": "user", "content": "My favorite color is green."},
-        {"role": "assistant", "content": "Noted: green."},
-    )
-
-    prompt_a = memory.build_prompt_messages(
-        memory_scope_id("user-a", "conversation-2"),
-        [{"role": "user", "content": "What is my favorite color?"}],
-    )
-    prompt_b = memory.build_prompt_messages(
-        memory_scope_id("user-b", "conversation-100"),
-        [{"role": "user", "content": "What is my favorite color?"}],
-    )
-
-    assert any("blue" in msg["content"] for msg in prompt_a)
-    assert not any("green" in msg["content"] for msg in prompt_a)
-    assert any("green" in msg["content"] for msg in prompt_b)
-    assert not any("blue" in msg["content"] for msg in prompt_b)
+    assert prompt_a == [a_user, a_asst, RECALL]
+    assert prompt_b == [b_user, b_asst, RECALL]
+    # And explicitly: no leakage either way.
+    assert all("France" not in m["content"] for m in prompt_a)
+    assert all("Japan" not in m["content"] for m in prompt_b)

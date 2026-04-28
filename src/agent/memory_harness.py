@@ -189,17 +189,51 @@ def run_growth(recent_window: int = 4, max_turns: int = 30) -> str:
     return "\n".join(lines)
 
 
-def run_user_scope_demo() -> str:
-    """Demonstrate user-scoped memory sharing + cross-user isolation deterministically."""
-    user_a_seed = [
-        {"role": "user", "content": "My favorite color is blue."},
-        {"role": "assistant", "content": "Noted: blue."},
-    ]
-    user_b_seed = [
-        {"role": "user", "content": "My favorite color is green."},
-        {"role": "assistant", "content": "Noted: green."},
-    ]
-    follow_up_user_turn = {"role": "user", "content": "What is my favorite color?"}
+# Two users share a different "favorite country" fact in conversation-1, then
+# both ask the SAME recall question in a new conversation-2. The demo proves:
+#   - each user's conversation-2 prompt carries their own answer (recall)
+#   - neither user's prompt contains the other user's answer (isolation)
+USER_A_ID = "user-a"
+USER_B_ID = "user-b"
+USER_A_FACT = "Japan"
+USER_B_FACT = "France"
+RECALL_QUESTION = "What is my favorite country?"
+
+
+@dataclass(frozen=True)
+class UserScopeDemoResult:
+    user_a_conv2_prompt: list[dict[str, str]]
+    user_b_conv2_prompt: list[dict[str, str]]
+    user_a_recalls_own_fact: bool
+    user_a_does_not_see_user_b_fact: bool
+    user_b_recalls_own_fact: bool
+    user_b_does_not_see_user_a_fact: bool
+
+    @property
+    def all_properties_hold(self) -> bool:
+        return all(
+            (
+                self.user_a_recalls_own_fact,
+                self.user_a_does_not_see_user_b_fact,
+                self.user_b_recalls_own_fact,
+                self.user_b_does_not_see_user_a_fact,
+            )
+        )
+
+
+def compute_user_scope_demo() -> UserScopeDemoResult:
+    """Run the user-scope flow and return structured assertions for tests.
+
+    Flow: conversation-1 seeds each user's favorite country, then conversation-2
+    asks the recall question. Memory is keyed by user_id, so the prompt
+    rebuilt for conversation-2 should contain that user's prior turns and
+    nothing from the other user.
+    """
+    user_a_seed_user = {"role": "user", "content": f"My favorite country is {USER_A_FACT}."}
+    user_a_seed_asst = {"role": "assistant", "content": f"Got it — {USER_A_FACT}."}
+    user_b_seed_user = {"role": "user", "content": f"My favorite country is {USER_B_FACT}."}
+    user_b_seed_asst = {"role": "assistant", "content": f"Got it — {USER_B_FACT}."}
+    recall = {"role": "user", "content": RECALL_QUESTION}
 
     with tempfile.TemporaryDirectory() as tmpdir:
         store = MemoryStore(f"{tmpdir}/harness.db")
@@ -210,53 +244,78 @@ def run_user_scope_demo() -> str:
             summary_updater=_harness_summary_updater,
         )
 
+        # Conversation-1: each user shares their favorite country.
         memory.persist_exchange(
-            memory_scope_id("user-a", "conversation-1"),
-            user_a_seed[0],
-            user_a_seed[1],
+            memory_scope_id(USER_A_ID, "conversation-1"), user_a_seed_user, user_a_seed_asst
         )
         memory.persist_exchange(
-            memory_scope_id("user-b", "conversation-1"),
-            user_b_seed[0],
-            user_b_seed[1],
+            memory_scope_id(USER_B_ID, "conversation-1"), user_b_seed_user, user_b_seed_asst
         )
 
+        # Conversation-2: each user asks the recall question. The coordinator
+        # rebuilds the prompt from persisted memory keyed by user.
         prompt_a = memory.build_prompt_messages(
-            memory_scope_id("user-a", "conversation-2"),
-            [follow_up_user_turn],
+            memory_scope_id(USER_A_ID, "conversation-2"), [recall]
         )
         prompt_b = memory.build_prompt_messages(
-            memory_scope_id("user-b", "conversation-2"),
-            [follow_up_user_turn],
+            memory_scope_id(USER_B_ID, "conversation-2"), [recall]
         )
 
-    shared_for_user_a = any("blue" in msg["content"] for msg in prompt_a)
-    isolated_for_user_a = not any("green" in msg["content"] for msg in prompt_a)
-    shared_for_user_b = any("green" in msg["content"] for msg in prompt_b)
-    isolated_for_user_b = not any("blue" in msg["content"] for msg in prompt_b)
+    return UserScopeDemoResult(
+        user_a_conv2_prompt=prompt_a,
+        user_b_conv2_prompt=prompt_b,
+        user_a_recalls_own_fact=any(USER_A_FACT in m["content"] for m in prompt_a),
+        user_a_does_not_see_user_b_fact=not any(USER_B_FACT in m["content"] for m in prompt_a),
+        user_b_recalls_own_fact=any(USER_B_FACT in m["content"] for m in prompt_b),
+        user_b_does_not_see_user_a_fact=not any(USER_A_FACT in m["content"] for m in prompt_b),
+    )
+
+
+def _format_prompt_block(prompt: list[dict[str, str]]) -> list[str]:
+    return [f"    {m['role']:<9} {m['content']}" for m in prompt]
+
+
+def format_user_scope_demo(result: UserScopeDemoResult) -> str:
+    def check(label: str, ok: bool) -> str:
+        return f"  [{'PASS' if ok else 'FAIL'}] {label}"
 
     lines = [
-        "=== User scope demo ===",
-        "Seed conversations (persisted):",
-        "conversation-1 / user-a",
-        "  user: My favorite color is blue.",
-        "  assistant: Noted: blue.",
-        "conversation-1 / user-b",
-        "  user: My favorite color is green.",
-        "  assistant: Noted: green.",
+        "=== User-scoped recall demo ===",
         "",
-        "Follow-up conversations (new conversation_id=conversation-2):",
-        "conversation-2 / user-a prompt built from persistence:",
-        *[f"  {msg['role']}: {msg['content']}" for msg in prompt_a],
-        "conversation-2 / user-b prompt built from persistence:",
-        *[f"  {msg['role']}: {msg['content']}" for msg in prompt_b],
+        "Premise: memory is keyed by user_id, not by conversation_id, so a fact",
+        "shared in one conversation should be available to that same user in a",
+        "later conversation — but never visible to a different user.",
         "",
-        f"shared_across_conversations_for_user_a: {shared_for_user_a}",
-        f"isolated_from_user_b_for_user_a: {isolated_for_user_a}",
-        f"shared_across_conversations_for_user_b: {shared_for_user_b}",
-        f"isolated_from_user_a_for_user_b: {isolated_for_user_b}",
+        f"Conversation-1: each user shares a favorite country.",
+        f"  {USER_A_ID}:",
+        f"    user      My favorite country is {USER_A_FACT}.",
+        f"    assistant Got it — {USER_A_FACT}.",
+        f"  {USER_B_ID}:",
+        f"    user      My favorite country is {USER_B_FACT}.",
+        f"    assistant Got it — {USER_B_FACT}.",
+        "",
+        f"Conversation-2 (new conversation_id): each user asks {RECALL_QUESTION!r}.",
+        f"The coordinator rebuilds the prompt from that user's persisted memory.",
+        "",
+        f"  {USER_A_ID} in conversation-2 — prompt the agent will receive:",
+        *_format_prompt_block(result.user_a_conv2_prompt),
+        f"    ↳ {USER_A_ID} can recall {USER_A_FACT!r}: {result.user_a_recalls_own_fact}",
+        "",
+        f"  {USER_B_ID} in conversation-2 — prompt the agent will receive:",
+        *_format_prompt_block(result.user_b_conv2_prompt),
+        f"    ↳ {USER_B_ID} can recall {USER_B_FACT!r}: {result.user_b_recalls_own_fact}",
+        "",
+        "Properties verified",
+        check(f"{USER_A_ID} recalls {USER_A_FACT!r} across conversations", result.user_a_recalls_own_fact),
+        check(f"{USER_A_ID} does NOT see {USER_B_FACT!r} (cross-user isolation)", result.user_a_does_not_see_user_b_fact),
+        check(f"{USER_B_ID} recalls {USER_B_FACT!r} across conversations", result.user_b_recalls_own_fact),
+        check(f"{USER_B_ID} does NOT see {USER_A_FACT!r} (cross-user isolation)", result.user_b_does_not_see_user_a_fact),
     ]
     return "\n".join(lines)
+
+
+def run_user_scope_demo() -> str:
+    return format_user_scope_demo(compute_user_scope_demo())
 
 
 def main() -> None:

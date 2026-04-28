@@ -85,3 +85,56 @@ def test_none_mode_does_not_recall_early_fact(tmp_path: Path):
     # answer (refusal, hedge, hallucinated city). We only assert it can't have
     # leaked the seed.
     assert "Seattle" not in answer
+
+
+def test_cross_user_recall_isolation_with_real_llm(tmp_path: Path):
+    """End-to-end proof of the user-scope demo:
+
+    user-a says "favorite country is Japan" in conversation-1.
+    user-b says "favorite country is France" in conversation-1.
+    In a NEW conversation-2, each user asks "what is my favorite country?".
+
+    With shared storage but per-user scoping, user-a's agent answer must
+    contain "Japan" (and not "France"), and user-b's must contain "France"
+    (and not "Japan").
+    """
+    store = MemoryStore(str(tmp_path / "cross-user.db"))
+    coord = MemoryCoordinator(
+        mode=MemoryMode.RAW,
+        store=store,
+        summary_model_str=MODEL,
+    )
+
+    coord.persist_exchange(
+        memory_scope_id("user-a", "conversation-1"),
+        {"role": "user", "content": "My favorite country is Japan."},
+        {"role": "assistant", "content": "Got it — Japan."},
+    )
+    coord.persist_exchange(
+        memory_scope_id("user-b", "conversation-1"),
+        {"role": "user", "content": "My favorite country is France."},
+        {"role": "assistant", "content": "Got it — France."},
+    )
+
+    agent = make_agent(model_str=MODEL, memory_mode=MemoryMode.RAW)
+    recall = [{"role": "user", "content": "What is my favorite country?"}]
+
+    answer_a = agent.invoke(
+        {
+            "messages": coord.build_prompt_messages(
+                memory_scope_id("user-a", "conversation-2"), recall
+            )
+        }
+    )["messages"][-1].content
+    answer_b = agent.invoke(
+        {
+            "messages": coord.build_prompt_messages(
+                memory_scope_id("user-b", "conversation-2"), recall
+            )
+        }
+    )["messages"][-1].content
+
+    assert "Japan" in answer_a, f"user-a should recall Japan, got: {answer_a!r}"
+    assert "France" not in answer_a, f"user-a leaked France: {answer_a!r}"
+    assert "France" in answer_b, f"user-b should recall France, got: {answer_b!r}"
+    assert "Japan" not in answer_b, f"user-b leaked Japan: {answer_b!r}"
