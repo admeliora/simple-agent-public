@@ -94,29 +94,42 @@ Memory scope rules:
 
 ## Memory harness
 
-To compare memory modes with a deterministic scripted conversation:
+The harness drives the **real** `MemoryCoordinator` through a deterministic
+scripted conversation and shows what context each mode would actually feed
+into the model — same code path as production CLI/server.
 
 ```bash
-uv run memory-harness --mode all
-```
+# default — side-by-side per-mode prompts on a 15-turn scripted convo
+uv run memory-harness --demo diff
 
-To demonstrate same-user sharing and cross-user isolation:
+# raw vs summary prompt-size growth across many turns (boundedness)
+uv run memory-harness --demo growth --max-turns 30
 
-```bash
+# verify per-user sharing + cross-user isolation
 uv run memory-harness --demo user-scope
+
+# one mode at a time
+uv run memory-harness --demo context --mode summary
+
+# run every demo back-to-back
+uv run memory-harness --demo all
 ```
 
 See `harness/README.md` for details.
 
-The harness is deterministic and demonstrates how `none`, `raw`, and `summary` produce different prompt contexts for the same scripted conversation.
-
 ## Running evals
 
 ```bash
+# fast, deterministic suite (default — slow/LLM tests gated)
 uv run pytest evals/ -v
+
+# include real-LLM recall evals (require provider credentials)
+uv run pytest evals/ -v -m slow
 ```
 
-Evals make real LLM calls (not mocked) to verify provider integration end-to-end.
+Provider-level integration tests in `test_agent.py` always run in the default
+suite. The cross-conversation recall tests in `test_memory_recall_llm.py` are
+marked `slow` and only run with `-m slow`.
 
 ## Project structure
 

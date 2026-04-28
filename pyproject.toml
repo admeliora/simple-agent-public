@@ -28,6 +28,10 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["evals"]
 pythonpath = ["src"]
+markers = [
+    "slow: tests that hit a real LLM (skipped by default; run with -m slow)",
+]
+addopts = "-m 'not slow'"
 
 [build-system]
 requires = ["hatchling"]

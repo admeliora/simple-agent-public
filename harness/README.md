@@ -1,82 +1,82 @@
 # Memory Harness
 
-This harness demonstrates how different cross-conversation memory approaches change
-what context is sent into the model for the same scripted conversation.
+This harness demonstrates how different cross-conversation memory approaches
+change what context is sent into the model for the same scripted conversation.
+It drives the **real** `MemoryCoordinator` (not a parallel simulation) so the
+output reflects exactly what the CLI/server would build at runtime.
 
 ## Modes demonstrated
 
 - `none`: only the current user turn is included
 - `raw`: full persisted history is included
-- `summary`: a running summary + the latest user turn are included
+- `summary`: a rolling summary of older turns + the most recent `K` raw turns
+  (no overlap — once a turn falls out of the recent window it is folded into
+  the summary and dropped from the raw tail)
 
-The harness is deterministic and **does not make external LLM calls**.
+The harness is deterministic and **does not make external LLM calls** — it uses
+a stand-in summary updater that extracts a few well-known fact patterns from
+the scripted conversation.
+
+## Demos
+
+```bash
+# side-by-side — runs all three modes on the same scripted convo and prints
+# per-mode prompt contents + char count breakdown (summary / recent / raw)
+uv run memory-harness --demo diff
+
+# prompt-size growth across many turns — shows raw growing ~linearly while
+# summary stays bounded by recent_window + summary length
+uv run memory-harness --demo growth --max-turns 30
+
+# user-scoped sharing + cross-user isolation
+uv run memory-harness --demo user-scope
+
+# single mode (use --mode none|raw|summary)
+uv run memory-harness --demo context --mode summary
+
+# all demos back-to-back
+uv run memory-harness --demo all
+```
+
+The `--recent-window` flag controls the summary mode's tail size (default 4).
 
 ## Scripted conversation
 
-The demo script includes a short conversation where the user shares:
+15 turns, 8 user / 7 assistant. The user shares:
 
-- their name (`Alice`)
-- a preference (`concise answers`)
-- a travel destination (`Tokyo in June`)
+- name (`Alice`)
+- preference (`concise answers`)
+- role (`software engineer, payments`)
+- destination (`Tokyo, June 2026`)
+- a few interest signals (sushi near Shibuya, weather, day trips)
 
-The last turn asks for recall, and each memory mode shows a different context payload.
+The 15th turn is a recall question: "what is my name and where am I traveling,
+and when?" — designed so that only `raw` and `summary` can answer fully.
 
-## Run
-
-From repository root:
-
-```bash
-uv run memory-harness --mode all
-```
-
-Or run a single mode:
+## Testing checklist
 
 ```bash
-uv run memory-harness --mode raw
-uv run memory-harness --mode summary
-uv run memory-harness --mode none
+# 1) deterministic harness output (no API calls)
+uv run memory-harness --demo all
+
+# 2) unit + persistence tests (default, fast)
+uv run pytest evals/ -v
+
+# 3) real-LLM recall tests (require credentials)
+uv run pytest evals/ -m slow -v
 ```
 
-To run the user-scoping demo (shared for same user across conversations, isolated between users):
+What to verify in the deterministic output:
 
-```bash
-uv run memory-harness --demo user-scope
-```
-
-This demo prints:
-
-- the seed exchanges written for `user-a` and `user-b` in `conversation-1`
-- the full prompt reconstructed for each user in `conversation-2`
-- boolean checks that confirm same-user sharing and cross-user isolation
-
-## Testing checklist (copy/paste)
-
-Use these commands from repo root to validate the harness and memory behavior:
-
-```bash
-# 1) run harness in all modes (deterministic output, no API calls)
-uv run memory-harness --mode all
-
-# 2) run user-scope demo output checks (same-user sharing, cross-user isolation)
-uv run memory-harness --demo user-scope
-
-# 3) assert harness behavior via tests
-uv run pytest evals/test_memory_modes.py -v
-
-# 4) assert persisted memory behavior, including conversation isolation
-uv run pytest evals/test_memory_persistence.py -v
-```
-
-What to verify:
-
-- `none` output contains only `current_user_turn`.
-- `raw` output shows the full scripted history.
-- `summary` output shows `memory_summary` + `recent_user_turn`.
-- `--demo user-scope` output reports `True` for sharing across conversations per user.
-- `--demo user-scope` output reports `True` for isolation between different users.
-- Persistence tests confirm memory is reused across turns in the same conversation.
-- User-scope tests confirm memory is shared across conversations for the same user.
-- Isolation tests confirm memory from one user does **not** leak into another user.
+- `none`: prompt is exactly the recall turn (1 message).
+- `raw`: prompt contains every prior persisted turn (15 messages here).
+- `summary`: prompt contains a `system` summary block + only the last
+  `recent_window` raw messages + the recall turn — and the oldest messages
+  appear **only** inside the summary block (no overlap with the raw tail).
+- `--demo growth` shows `raw_chars` rising roughly linearly with turn count
+  while `summary_chars` stays roughly flat.
+- `--demo user-scope` reports `True` for both same-user sharing and
+  cross-user isolation in all four assertions.
 
 ## Troubleshooting
 
@@ -85,23 +85,27 @@ If `memory-harness` fails with `ModuleNotFoundError: No module named 'agent'`:
 1. Reinstall project + scripts into the virtualenv:
 
    ```bash
-   uv sync
+   uv sync --reinstall-package take-home
    ```
 
 2. Run via uv (recommended):
 
    ```bash
-   uv run memory-harness --demo user-scope
+   uv run memory-harness --demo diff
    ```
 
 3. Or run module form directly:
 
    ```bash
-   .venv/bin/python -m agent.memory_harness --demo user-scope
+   PYTHONPATH=src .venv/bin/python -m agent.memory_harness --demo diff
    ```
 
 ## Interpreting output
 
 - `none` is the baseline with no cross-conversation memory.
-- `raw` maximizes fidelity but grows context size.
-- `summary` is compact but can lose detail depending on summary quality.
+- `raw` maximizes fidelity but grows context size linearly — fine for short
+  sessions, expensive at scale.
+- `summary` keeps total prompt size bounded but quality depends on the summary
+  updater (the harness uses a deterministic stub; in production this is an
+  LLM call). Older turns survive only via the summary text — verify the
+  summary preserves the durable facts you need.

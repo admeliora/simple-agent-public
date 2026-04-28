@@ -22,3 +22,6 @@ uv.lock
 
 # Node
 node_modules/
+
+# Local memory store
+*.db
