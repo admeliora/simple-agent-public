@@ -82,3 +82,38 @@ def test_none_mode_passes_through_messages(tmp_path: Path):
 
     incoming = [{"role": "user", "content": "hello"}]
     assert memory.build_prompt_messages("conv", incoming) == incoming
+
+
+def test_memory_is_isolated_across_conversations(tmp_path: Path):
+    store = MemoryStore(str(tmp_path / "isolation.db"))
+    memory = MemoryCoordinator(
+        mode=MemoryMode.RAW,
+        store=store,
+        summary_model_str="openai:gpt-4o-mini",
+        summary_updater=fake_summary_updater,
+    )
+
+    memory.persist_exchange(
+        "conversation-a",
+        {"role": "user", "content": "My favorite color is blue."},
+        {"role": "assistant", "content": "Noted: blue."},
+    )
+    memory.persist_exchange(
+        "conversation-b",
+        {"role": "user", "content": "My favorite color is green."},
+        {"role": "assistant", "content": "Noted: green."},
+    )
+
+    prompt_a = memory.build_prompt_messages(
+        "conversation-a",
+        [{"role": "user", "content": "What is my favorite color?"}],
+    )
+    prompt_b = memory.build_prompt_messages(
+        "conversation-b",
+        [{"role": "user", "content": "What is my favorite color?"}],
+    )
+
+    assert any("blue" in msg["content"] for msg in prompt_a)
+    assert not any("green" in msg["content"] for msg in prompt_a)
+    assert any("green" in msg["content"] for msg in prompt_b)
+    assert not any("blue" in msg["content"] for msg in prompt_b)

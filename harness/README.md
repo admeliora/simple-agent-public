@@ -37,6 +37,29 @@ uv run memory-harness --mode summary
 uv run memory-harness --mode none
 ```
 
+## Testing checklist (copy/paste)
+
+Use these commands from repo root to validate the harness and memory behavior:
+
+```bash
+# 1) run harness in all modes (deterministic output, no API calls)
+uv run memory-harness --mode all
+
+# 2) assert harness behavior via tests
+uv run pytest evals/test_memory_modes.py -v
+
+# 3) assert persisted memory behavior, including conversation isolation
+uv run pytest evals/test_memory_persistence.py -v
+```
+
+What to verify:
+
+- `none` output contains only `current_user_turn`.
+- `raw` output shows the full scripted history.
+- `summary` output shows `memory_summary` + `recent_user_turn`.
+- Persistence tests confirm memory is reused across turns in the same conversation.
+- Isolation tests confirm memory from one conversation ID does **not** leak into another.
+
 ## Interpreting output
 
 - `none` is the baseline with no cross-conversation memory.
