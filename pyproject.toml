@@ -17,6 +17,7 @@ dependencies = [
 [project.scripts]
 chat = "agent.cli:main"
 serve = "agent.server:main"
+memory-harness = "agent.memory_harness:main"
 
 [dependency-groups]
 dev = [

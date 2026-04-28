@@ -48,6 +48,45 @@ cp .env.example .env
 # Fill in your API key(s) in .env
 ```
 
+
+## Memory mode toggle
+
+Cross-conversation memory modes:
+
+- `none` (default)
+- `raw`
+- `summary`
+
+CLI:
+
+```bash
+uv run chat --memory-mode raw
+```
+
+Server:
+
+```bash
+MEMORY_MODE=summary uv run serve
+```
+
+Use `MEMORY_DB_PATH` to control where conversation memory is stored (SQLite):
+
+```bash
+MEMORY_DB_PATH=.data/memory.db MEMORY_MODE=raw uv run serve
+```
+
+## Memory harness
+
+To compare memory modes with a deterministic scripted conversation:
+
+```bash
+uv run memory-harness --mode all
+```
+
+See `harness/README.md` for details.
+
+The harness is deterministic and demonstrates how `none`, `raw`, and `summary` produce different prompt contexts for the same scripted conversation.
+
 ## Running evals
 
 ```bash
