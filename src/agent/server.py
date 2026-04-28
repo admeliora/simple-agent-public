@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from agent.core import make_agent
-from agent.memory import MemoryCoordinator, MemoryStore
+from agent.memory import MemoryCoordinator, MemoryStore, memory_scope_id
 from agent.memory_mode import parse_memory_mode
 
 load_dotenv()
@@ -43,13 +43,15 @@ class Message(BaseModel):
 class ChatRequest(BaseModel):
     messages: list[Message]
     conversation_id: str | None = None
+    user_id: str | None = None
 
 
 @app.post("/chat")
 def chat(req: ChatRequest):
     conversation_id = req.conversation_id or DEFAULT_CONVERSATION_ID
+    scope_id = memory_scope_id(req.user_id, conversation_id)
     incoming_messages = [{"role": m.role, "content": m.content} for m in req.messages]
-    request_messages = memory.build_prompt_messages(conversation_id, incoming_messages)
+    request_messages = memory.build_prompt_messages(scope_id, incoming_messages)
 
     result = agent.invoke({"messages": request_messages})
     ai_msg = result["messages"][-1]
@@ -64,7 +66,7 @@ def chat(req: ChatRequest):
     )
     if latest_user is not None:
         memory.persist_exchange(
-            conversation_id,
+            scope_id,
             latest_user,
             {"role": "assistant", "content": ai_msg.content},
         )

@@ -18,21 +18,24 @@ uv run chat --model google_genai:gemini-2.5-flash
 uv run chat --system "You are a helpful coding assistant."
 
 # Memory mode scaffold
-uv run chat --memory-mode raw --conversation-id alice
-uv run chat --memory-mode summary --conversation-id alice
+uv run chat --memory-mode raw --user-id alice --conversation-id session-1
+uv run chat --memory-mode summary --user-id alice --conversation-id session-2
 ```
 
 You can set `MEMORY_DB_PATH` to customize SQLite storage location:
 
 ```bash
-MEMORY_DB_PATH=.data/memory.db uv run chat --memory-mode raw --conversation-id alice
+MEMORY_DB_PATH=.data/memory.db uv run chat --memory-mode raw --user-id alice --conversation-id session-1
 ```
 
 Type `quit` or `exit` to end the session.
 
 ## How it works
 
-`src/agent/cli.py` keeps a running in-memory `messages` list when `--memory-mode none`. In `raw` and `summary` modes it reads/writes persisted conversation memory keyed by `--conversation-id` and builds prompt messages from stored state.
+`src/agent/cli.py` keeps a running in-memory `messages` list when `--memory-mode none`. In `raw` and `summary` modes it reads/writes persisted memory keyed by user scope:
+
+- when `--user-id` is set, memory is shared across that user's conversations.
+- when `--user-id` is omitted, memory falls back to `--conversation-id`.
 
 ## Relevant files
 

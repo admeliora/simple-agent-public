@@ -20,7 +20,19 @@
       "Bash(uv sync:*)",
       "Bash(uv run python:*)",
       "Bash(cd:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(.venv/bin/pytest evals/test_memory_modes.py evals/test_memory_persistence.py -v)",
+      "Bash(.venv/bin/pytest evals/ -v --collect-only)",
+      "Bash(.venv/bin/memory-harness --demo diff)",
+      "Bash(uv run *)",
+      "Bash(uv pip *)",
+      "Bash(.venv/bin/python *)",
+      "Bash(.venv/bin/memory-harness --demo growth --max-turns 20)",
+      "Bash(.venv/bin/python3 *)",
+      "Bash(PYTHONPATH=src .venv/bin/python -m agent.memory_harness --demo growth --max-turns 20)",
+      "Bash(PYTHONPATH=src .venv/bin/python -m agent.memory_harness --demo user-scope)",
+      "Bash(rm -f /tmp/_smoke_memory.db)",
+      "Bash(.venv/bin/pytest evals/test_memory_modes.py evals/test_memory_persistence.py)"
     ]
   }
 }

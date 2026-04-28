@@ -4,7 +4,7 @@ import os
 from dotenv import load_dotenv
 
 from agent.core import make_agent
-from agent.memory import MemoryCoordinator, MemoryStore
+from agent.memory import MemoryCoordinator, MemoryStore, memory_scope_id
 from agent.memory_mode import MemoryMode, parse_memory_mode
 
 
@@ -31,7 +31,12 @@ def main():
     parser.add_argument(
         "--conversation-id",
         default="default",
-        help="Conversation identifier used for cross-session memory retrieval",
+        help="Conversation identifier (used for display and fallback memory scope when --user-id is omitted)",
+    )
+    parser.add_argument(
+        "--user-id",
+        default=None,
+        help="User identifier; when provided, memory is shared across conversations for this user",
     )
     args = parser.parse_args()
 
@@ -46,10 +51,11 @@ def main():
     )
 
     conversation_id = args.conversation_id
+    scope_id = memory_scope_id(args.user_id, conversation_id)
     messages = []
 
     print(
-        f"Chat started (memory mode: {memory_mode.value}, conversation_id: {conversation_id}). "
+        f"Chat started (memory mode: {memory_mode.value}, conversation_id: {conversation_id}, scope_id: {scope_id}). "
         "Type 'quit' to exit.\n"
     )
 
@@ -71,7 +77,7 @@ def main():
             messages.append(user_message)
             request_messages = messages
         else:
-            request_messages = memory.build_prompt_messages(conversation_id, [user_message])
+            request_messages = memory.build_prompt_messages(scope_id, [user_message])
 
         result = agent.invoke({"messages": request_messages})
         ai_msg = result["messages"][-1]
@@ -81,7 +87,7 @@ def main():
         if memory_mode == MemoryMode.NONE:
             messages = result["messages"]
         else:
-            memory.persist_exchange(conversation_id, user_message, assistant_message)
+            memory.persist_exchange(scope_id, user_message, assistant_message)
 
 
 if __name__ == "__main__":

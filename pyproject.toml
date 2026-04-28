@@ -27,6 +27,11 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["evals"]
+pythonpath = ["src"]
+markers = [
+    "slow: tests that hit a real LLM (skipped by default; run with -m slow)",
+]
+addopts = "-m 'not slow'"
 
 [build-system]
 requires = ["hatchling"]
@@ -34,3 +39,12 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/agent"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/pyproject.toml",
+    "/README.md",
+    "/docs",
+    "/harness",
+]

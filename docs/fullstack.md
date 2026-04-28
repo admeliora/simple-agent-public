@@ -39,7 +39,8 @@ POST /chat
 Content-Type: application/json
 
 {
-  "conversation_id": "alice",
+  "user_id": "alice",
+  "conversation_id": "session-1",
   "messages": [
     { "role": "user", "content": "Hello!" }
   ]
@@ -52,7 +53,7 @@ Content-Type: application/json
 }
 ```
 
-With `MEMORY_MODE=none`, frontend behavior is unchanged. With `raw` or `summary`, the server persists memory in SQLite and uses `conversation_id` to restore cross-session context.
+With `MEMORY_MODE=none`, frontend behavior is unchanged. With `raw` or `summary`, the server persists memory in SQLite. If `user_id` is provided, memory is shared across conversations for that user; otherwise it falls back to `conversation_id`.
 
 ## How it works
 
