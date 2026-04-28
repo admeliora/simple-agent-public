@@ -33,6 +33,9 @@ def test_harness_none_mode_uses_only_current_turn():
 
 def test_harness_user_scope_demo_reports_sharing_and_isolation():
     output = run_user_scope_demo()
+    assert "Seed conversations (persisted):" in output
+    assert "conversation-2 / user-a prompt built from persistence:" in output
+    assert "conversation-2 / user-b prompt built from persistence:" in output
     assert "shared_across_conversations_for_user_a: True" in output
     assert "isolated_from_user_b_for_user_a: True" in output
     assert "shared_across_conversations_for_user_b: True" in output

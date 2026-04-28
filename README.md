@@ -5,6 +5,18 @@ A minimal LLM agent built on [LangChain Deep Agents](https://github.com/langchai
 - [CLI guide](docs/cli.md) — interactive terminal chat
 - [Fullstack guide](docs/fullstack.md) — FastAPI server + React frontend
 
+### Choosing between the two approaches
+
+- **CLI (`uv run chat`)**
+  - Best for local experimentation, prompt iteration, and debugging.
+  - Minimal setup and fastest feedback loop.
+  - Tradeoff: single-terminal UX and no built-in multi-user HTTP interface.
+
+- **Fullstack (`uv run serve` + React frontend)**
+  - Best when you want a browser UI and API surface for app integration.
+  - Supports client/server separation and easier extension for product use-cases.
+  - Tradeoff: more moving parts (backend + frontend processes) and operational complexity.
+
 ---
 
 ## Core agent

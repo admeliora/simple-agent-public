@@ -43,6 +43,12 @@ To run the user-scoping demo (shared for same user across conversations, isolate
 uv run memory-harness --demo user-scope
 ```
 
+This demo prints:
+
+- the seed exchanges written for `user-a` and `user-b` in `conversation-1`
+- the full prompt reconstructed for each user in `conversation-2`
+- boolean checks that confirm same-user sharing and cross-user isolation
+
 ## Testing checklist (copy/paste)
 
 Use these commands from repo root to validate the harness and memory behavior:

@@ -74,6 +74,16 @@ def _harness_summary_updater(existing_summary: str, new_messages: list[dict[str,
 
 def run_user_scope_demo() -> str:
     """Demonstrate user-scoped memory sharing + cross-user isolation deterministically."""
+    user_a_seed = [
+        {"role": "user", "content": "My favorite color is blue."},
+        {"role": "assistant", "content": "Noted: blue."},
+    ]
+    user_b_seed = [
+        {"role": "user", "content": "My favorite color is green."},
+        {"role": "assistant", "content": "Noted: green."},
+    ]
+    follow_up_user_turn = {"role": "user", "content": "What is my favorite color?"}
+
     with tempfile.TemporaryDirectory() as tmpdir:
         store = MemoryStore(f"{tmpdir}/harness.db")
         memory = MemoryCoordinator(
@@ -85,22 +95,22 @@ def run_user_scope_demo() -> str:
 
         memory.persist_exchange(
             memory_scope_id("user-a", "conversation-1"),
-            {"role": "user", "content": "My favorite color is blue."},
-            {"role": "assistant", "content": "Noted: blue."},
+            user_a_seed[0],
+            user_a_seed[1],
         )
         memory.persist_exchange(
             memory_scope_id("user-b", "conversation-1"),
-            {"role": "user", "content": "My favorite color is green."},
-            {"role": "assistant", "content": "Noted: green."},
+            user_b_seed[0],
+            user_b_seed[1],
         )
 
         prompt_a = memory.build_prompt_messages(
             memory_scope_id("user-a", "conversation-2"),
-            [{"role": "user", "content": "What is my favorite color?"}],
+            [follow_up_user_turn],
         )
         prompt_b = memory.build_prompt_messages(
             memory_scope_id("user-b", "conversation-2"),
-            [{"role": "user", "content": "What is my favorite color?"}],
+            [follow_up_user_turn],
         )
 
     shared_for_user_a = any("blue" in msg["content"] for msg in prompt_a)
@@ -110,8 +120,20 @@ def run_user_scope_demo() -> str:
 
     lines = [
         "=== User scope demo ===",
-        "user-a seed conversation: conversation-1",
-        "user-a follow-up conversation: conversation-2",
+        "Seed conversations (persisted):",
+        "conversation-1 / user-a",
+        "  user: My favorite color is blue.",
+        "  assistant: Noted: blue.",
+        "conversation-1 / user-b",
+        "  user: My favorite color is green.",
+        "  assistant: Noted: green.",
+        "",
+        "Follow-up conversations (new conversation_id=conversation-2):",
+        "conversation-2 / user-a prompt built from persistence:",
+        *[f"  {msg['role']}: {msg['content']}" for msg in prompt_a],
+        "conversation-2 / user-b prompt built from persistence:",
+        *[f"  {msg['role']}: {msg['content']}" for msg in prompt_b],
+        "",
         f"shared_across_conversations_for_user_a: {shared_for_user_a}",
         f"isolated_from_user_b_for_user_a: {isolated_for_user_a}",
         f"shared_across_conversations_for_user_b: {shared_for_user_b}",
